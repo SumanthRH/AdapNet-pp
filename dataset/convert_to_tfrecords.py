@@ -25,6 +25,8 @@ PARSER = argparse.ArgumentParser()
 PARSER.add_argument('-f', '--file')
 PARSER.add_argument('-r', '--record')
 PARSER.add_argument('-m', '--mean')
+PARSER.add_argument('--height')
+PARSER.add_argument('-w','--width')
 
 def decode(txt):
     with open(txt) as file_handler:
@@ -37,7 +39,7 @@ def decode(txt):
 
     return file_list
 
-def convert(f, record_name, mean_flag):
+def convert(f, record_name, mean_flag, height, width):
     count = 0.0
     writer = tf.python_io.TFRecordWriter(record_name)
 
@@ -46,29 +48,54 @@ def convert(f, record_name, mean_flag):
 
     for name in f:
         modality1 = cv2.imread(name[0])
+        if height and width:
+            try:
+                modality1 = cv2.resize(modality1,(int(width),int(height)),interpolation=cv2.INTER_AREA)
+            except Exception as e:
+                print(e)
+                print(name)
         if mean_flag:
             mean += modality1
         
-        label = cv2.imread(name[1], cv2.IMREAD_ANYCOLOR)
+
+        modality2 = cv2.imread(name[1])
+        if height and width:
+            try:
+                modality2 = cv2.resize(modality2,(int(width),int(height)),interpolation=cv2.INTER_AREA)
+            except Exception as e:
+                print(e)
+                print(name)
+        if mean_flag:
+            mean += modality2
+
+        label = cv2.imread(name[2],cv2.IMREAD_GRAYSCALE)
+        #print("label",np.unique(label)) 
+        if height and width:
+             label = cv2.resize(label,(int(width),int(height)),interpolation=cv2.INTER_NEAREST)
         try:
             assert len(label.shape)==2
-        except AssertionError, e:
-            raise( AssertionError( "Label should be one channel!" ) )
+        except AssertionError:
+            # raise( AssertionError( "Label should be one channel!" ) )
+            print('Converting label to grayscale...you have been warned!')
+            print(np.unique(label))
+            label=cv2.cvtColor(label,cv2.COLOR_BGR2GRAY)
             
         height = modality1.shape[0]
         width = modality1.shape[1]
         modality1 = modality1.tostring()
+        modality2 = modality2.tostring()
         label = label.tostring()
         features = {'height':_int64_feature(height),
                     'width':_int64_feature(width),
                     'modality1':_bytes_feature(modality1),
+                    'modality2':_bytes_feature(modality2),
                     'label':_bytes_feature(label),
                    }
         example = tf.train.Example(features=tf.train.Features(feature=features))
         writer.write(example.SerializeToString())
 
         if (count+1)%1 == 0:
-            print 'Processed data: {}'.format(count)
+            print('Processed data: {}'.format(count))
 
         count = count+1
 
@@ -81,17 +108,23 @@ def main():
     if args.file:
         file_list = decode(args.file)
     else:
-        print '--file file_address missing'
+        print('--file file_address missing')
         return
     if args.record:
         record_name = args.record
     else:
-        print '--record tfrecord name missing'
+        print('--record tfrecord name missing')
         return
     mean_flag = False
+    width = False
+    height = False
     if args.record:
         mean_flag = args.mean
-    convert(file_list, record_name, mean_flag)
+    if args.height:
+        height = args.height
+    if args.width:
+        width = args.width
+    convert(file_list, record_name, mean_flag, height, width)
 
 if __name__ == '__main__':
     main()

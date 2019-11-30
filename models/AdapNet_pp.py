@@ -13,10 +13,12 @@
  GNU General Public License for more details.'''
 
 import tensorflow as tf
+import sys
+sys.path.append('/home/vighnesh/AdapNet-pp/models')
 import network_base
 class AdapNet_pp(network_base.Network):
     def __init__(self, num_classes=12, learning_rate=0.001, float_type=tf.float32, weight_decay=0.0005,
-                 decay_steps=30000, power=0.9, training=True, ignore_label=True, global_step=0,
+                 decay_steps=30000, power=0.9, training=True, ignore_label=False, global_step=0,
                  has_aux_loss=True):
         
         super(AdapNet_pp, self).__init__()
@@ -86,7 +88,7 @@ class AdapNet_pp(network_base.Network):
         ##skip
         self.skip1 = self.conv_batchN_relu(self.b1_out, 1, 1, 24, name='conv32', relu=False)
         self.skip2 = self.conv_batchN_relu(self.b2_out, 1, 1, 24, name='conv174', relu=False)
-
+        print('skip 2 shape :',self.skip2)
         ##eAspp
         self.IA = self.conv_batchN_relu(self.b4_out, 1, 1, 256, name='conv256')
 
@@ -116,7 +118,7 @@ class AdapNet_pp(network_base.Network):
         with tf.variable_scope('conv41'):
             self.deconv_up1 = self.tconv2d(self.eAspp_out, 4, 256, 2)
             self.deconv_up1 = self.batch_norm(self.deconv_up1)
-
+        print('deconv1 shape :',self.deconv_up1)
         self.up1 = self.conv_batchN_relu(tf.concat((self.deconv_up1, self.skip2), 3), 3, 1, 256, name='conv89') 
         self.up1 = self.conv_batchN_relu(self.up1, 3, 1, 256, name='conv96')
         with tf.variable_scope('conv16'):
@@ -144,7 +146,7 @@ class AdapNet_pp(network_base.Network):
             self.loss = self.loss+0.6*aux_loss1+0.5*aux_loss2
     def create_optimizer(self):
         self.lr = tf.train.polynomial_decay(self.learning_rate, self.global_step,
-                                            self.decay_steps, power=self.power)
+                                            self.decay_steps, power=float(self.power))
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss, global_step=self.global_step)
 
     def _create_summaries(self):
@@ -159,7 +161,7 @@ class AdapNet_pp(network_base.Network):
             self._create_loss(label)
 
 def main():
-    print 'Do Nothing'
+    print('Do Nothing')
    
 if __name__ == '__main__':
     main()

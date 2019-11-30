@@ -21,30 +21,17 @@ import re
 import tensorflow as tf
 import yaml
 from dataset.helper import *
-import cv2
-
-
 
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument('-c', '--config', default='config/cityscapes_train.config')
-PARSER.add_argument('-o', '--save_dir', default='/mnt/checkpoints_HDD/IDD/records')
 
-
-
-def resize(image,height,width):
-   img = np.zeros_like(image)
-   for i in range(image.shape[0]):
-       img[i] = cv2.resize(image[i],(width,height),interpolation=cv2.INTER_NEAREST)
-   return img
-
-def train_func(config,save_dir):
-    os.environ['CUDA_VISIBLE_DEVICS'] = config['gpu_id']
+def train_func(config):
+    os.environ['CUDA_VISIBLE_DEVICES'] = config['gpu_id']
     module = importlib.import_module('models.'+config['model'])
     model_func = getattr(module, config['model'])
     data_list, iterator = get_train_data(config)
-    #data_list[0] = tf.py_func(func=resize,inp=[data_list[0],384,768],Tout=tf.float32)
-    #data_list[1] = tf.py_func(func=resize,inp=[data_list[1],384,768],Tout=tf.float32)
-    #print(np.unique(data_list[1]))
+    data_list[0] = tf.image.resize_bicubic(data_list[0],(384,768))
+    data_list[1] = tf.image.resize_bicubic(data_list[1],(384,768))
     resnet_name = 'resnet_v2_50'
     global_step = tf.Variable(0, trainable=False, name='Global_Step')
 
@@ -56,9 +43,11 @@ def train_func(config,save_dir):
         labels_pl = tf.placeholder(tf.float32, [None, config['height'], config['width'],
                                                 config['num_classes']])
         model.build_graph(images_pl, labels_pl)
-        # model_vars = tf.trainable_variables()
+        ###################################################################################
+        model_vars = tf.trainable_variables()
         # tf.contrib.slim.model_analyzer.analyze_vars(model_vars, print_info=True)
         model.create_optimizer()
+        ##################################################
  
     config1 = tf.ConfigProto()
     config1.gpu_options.allow_growth = True
@@ -93,31 +82,16 @@ def train_func(config,save_dir):
             saver.restore(save_path=config['intialize'], sess=sess)
             print('Pretrained Intialization')
         saver = tf.train.Saver(max_to_keep=1000)
-    writer = tf.summary.FileWriter(save_dir)
-    loss_summ = tf.summary.scalar('loss',model.loss)
-    image_summ = tf.summary.image('image',data_list[0])
-    label_tensor = tf.cast(tf.argmax(data_list[1],axis=3),dtype=tf.uint8)
-    label_unresized_tensor = tf.cast(255*data_list[2],dtype=tf.uint8)
-    pred_tensor = tf.cast(tf.argmax(model.softmax,3),dtype=tf.uint8)
-    label_summ = tf.summary.image('label',255*tf.expand_dims(label_tensor,axis=3))
-    #print(tf.shape(label_unresized_tensor))
-    label_unresized_summ = tf.summary.image('label_unresized',255*tf.expand_dims(label_unresized_tensor,axis = 3))
-    pred_summ = tf.summary.image('pred',255*tf.expand_dims(pred_tensor,axis=3))
-    print('Shape of image being summarized: ',tf.argmax(model.softmax,3)[0])
+       
     while 1:
         try:
-            img, label,image_str,label_str,summary_str = sess.run([data_list[0], data_list[1],image_summ,label_summ,label_unresized_summ])
-            if step==0:
-               print("Image size :",img.shape)
-            writer.add_summary(image_str,step)
-            writer.add_summary(label_str,step)
-            writer.add_summary(summary_str,step)
+            img, label = sess.run([data_list[0], data_list[1]])
             feed_dict = {images_pl: img, labels_pl: label}
             
-            loss_batch, _, loss_str,pred_str = sess.run([model.loss, model.train_op,loss_summ,pred_summ],
+            loss_batch, _ = sess.run([model.loss, model.train_op],
                                      feed_dict=feed_dict)
-            writer.add_summary(loss_str,step)
-            writer.add_summary(pred_str,step)
+            loss_batch,_ = sess.run([model.loss,model.train_op2],feed_dict =feed_dict)
+
             total_loss += loss_batch
 
             if (step + 1) % config['save_step'] == 0:
@@ -143,14 +117,11 @@ def train_func(config,save_dir):
                 total_loss = 0.0
 
             step += 1
-            writer.flush()
-              
             if step > config['max_iteration']:
                 saver.save(sess, os.path.join(config['checkpoint'], 'model.ckpt'), step-1)
                 print('training_completed')
-                writer.add_graph(sess.graph)
                 break
-       
+
         except tf.errors.OutOfRangeError:
             print('Epochs in dataset repeat < max_iteration')
             break
@@ -162,7 +133,7 @@ def main():
         config = yaml.load(file_address)
     else:
         print('--config config_file_address missing')
-    train_func(config,args.save_dir)
+    train_func(config)
 
 if __name__ == '__main__':
     main()

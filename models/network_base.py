@@ -17,7 +17,7 @@ import tensorflow as tf
 
 class Network(object):
     def __init__(self):
-        print 'Network_Construction'
+        print('Network_Construction')
 
     def _setup(self, data):
         raise NotImplementedError("Implement this method.")
@@ -249,7 +249,7 @@ class Network(object):
                 b3_u3_1e_cout=self.conv2d(b3_u3_3_ract, 1, 1, out_channels)
 
             if dropout:
-        	b3_u3_1e_cout=tf.nn.dropout(b3_u3_1e_cout, self.keep_prob)
+                b3_u3_1e_cout=tf.nn.dropout(b3_u3_1e_cout, self.keep_prob)
 
             if shortcut:
                 with tf.variable_scope('shortcut'):

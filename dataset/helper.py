@@ -15,6 +15,12 @@
 
 import numpy as np
 import tensorflow as tf
+import cv2
+import scipy
+def resize(image,height,width):
+   return scipy.misc.imresize(image,(height,width))
+    
+
 
 def get_train_batch(config):
     filenames = [config['train_data']]
@@ -29,8 +35,8 @@ def get_train_batch(config):
 
 def get_train_data(config):
     iterator = get_train_batch(config)
-    dataA, label = iterator.get_next()
-    return [dataA, label], iterator
+    dataA, label,label_unresized = iterator.get_next()
+    return [dataA, label,label_unresized], iterator
 
 def get_test_data(config):
     iterator = get_test_batch(config)
@@ -54,7 +60,7 @@ def compute_output_matrix(label_max, pred_max, output_matrix):
     # Output:
     # output_matrix shape(NUM_CLASSES,3): columns with total count of true positives,
     #                                     false positives and false negatives.
-    for i in xrange(output_matrix.shape[0]):
+    for i in range(output_matrix.shape[0]):
         temp = pred_max == i
         temp_l = label_max == i
         tp = np.logical_and(temp, temp_l)
@@ -78,21 +84,30 @@ def compute_iou(output_matrix):
     return np.sum(output_matrix[1:, 0]/(np.sum(output_matrix[1:, :], 1).astype(np.float32)+1e-10))/(output_matrix.shape[0]-1)*100
 
 def parser(proto_data, num_classes):
-
     features = {'height':tf.FixedLenFeature((), tf.int64, default_value=0),
                 'width':tf.FixedLenFeature((), tf.int64, default_value=0),
                 'modality1':tf.FixedLenFeature((), tf.string, default_value=""),
+                'modality2':tf.FixedLenFeature((), tf.string, default_value=""),
                 'label':tf.FixedLenFeature((), tf.string, default_value="")
                }
     parsed_features = tf.parse_single_example(proto_data, features)
     modality1 = tf.decode_raw(parsed_features['modality1'], tf.uint8)
     label = tf.decode_raw(parsed_features['label'], tf.uint8)
-
+    modality2 = tf.decode_raw(parsed_features['modality2'], tf.uint8)
     height = tf.cast(parsed_features['height'], tf.int32)
     width = tf.cast(parsed_features['width'], tf.int32)
-    label = tf.reshape(label, [height, width, 1])
+    label = 255*tf.reshape(label, [height, width, 1])
+
+
+
+
+
+    #x = tf.identity(label)
+    label = tf.py_func(func=resize,inp=[label,384,768],Tout=tf.uint8)
+    label = tf.reshape(label, [384, 768,1])
     label = tf.one_hot(label, num_classes)
     label = tf.squeeze(label, axis=2)
     modality1 = tf.reshape(modality1, [height, width, 3])
+    modality1 = tf.py_func(func=resize,inp=[modality1,384,768],Tout=tf.uint8)
 
     return tf.cast(modality1, tf.float32), tf.cast(label, tf.int32)
