@@ -1,3 +1,12 @@
+#EE6132 Project Submission 
+
+This code represents a part of the code used for the course project titled Self-supervised approach for free space estimation for the course EE6132: Advanced Topics in Signal Processing.
+
+The slides containing the full set of results, as well as a detailed explanation of the quantum of work done is given in the file titled Presentation.pdf
+
+ 
+
+
 # AdapNet++:  Self-Supervised Model Adaptation for Multimodal Semantic Segmentation
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/self-supervised-model-adaptation-for/semantic-segmentation-on-cityscapes)](https://paperswithcode.com/sota/semantic-segmentation-on-cityscapes?p=self-supervised-model-adaptation-for)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/self-supervised-model-adaptation-for/semantic-segmentation-on-synthia-cvpr16)](https://paperswithcode.com/sota/semantic-segmentation-on-synthia-cvpr16?p=self-supervised-model-adaptation-for)
